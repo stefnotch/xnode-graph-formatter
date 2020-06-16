@@ -48,7 +48,7 @@ namespace XNodeEditor.Examples
         {
             base.AddContextMenuItems(menu);
             menu.AddItem(new GUIContent("Format selection"), false, () => AutoFormat(Selection.objects.Where(x => x is XNode.Node).Select(x => x as XNode.Node).ToList()));
-            menu.AddItem(new GUIContent("Format all"), false, () => AutoFormat(this.target.nodes.ToList()));
+            menu.AddItem(new GUIContent("Format all"), false, () => AutoFormat(target.nodes.ToList()));
         }
 
         private void AutoFormat(List<XNode.Node> nodes)
@@ -59,17 +59,17 @@ namespace XNodeEditor.Examples
             // false = not visited
             // true = visited
             // Also used to test if a node should be visited
-            Dictionary<XNode.Node, bool> nodesToVisit = nodes.ToDictionary(n => n, n => false);
+            var nodesToVisit = nodes.ToDictionary(n => n, _ => false);
             int visitedNodesCount = 0;
 
             // While we have not processed every node, run the breadth first search
             while (visitedNodesCount < nodes.Count)
             {
-                List<XNode.Node> output = new List<XNode.Node>();
+                var output = new List<XNode.Node>();
 
-                Queue<XNode.Node> toProcess = new Queue<XNode.Node>();
+                var toProcess = new Queue<XNode.Node>();
 
-                XNode.Node start = nodesToVisit.First(kvp => !kvp.Value).Key;
+                var start = nodesToVisit.First(kvp => !kvp.Value).Key;
 
                 nodesToVisit[start] = true;
                 toProcess.Enqueue(start);
@@ -118,95 +118,127 @@ namespace XNodeEditor.Examples
             // Assumes that all nodes are connected
 
             // Storing extra data for each node
-            Dictionary<XNode.Node, GraphNode> graphNodes = nodes.ToDictionary(n => n, n => new GraphNode() { });
+            var graphNodes = nodes.ToDictionary(n => n, n => new FormattedNode() { Node = n });
 
             // Find rightmost nodes (nodes that don't have any of our nodes to the right)
-            // TODO: Sort the endNodes
-            var endNodes = nodes
-                .Where(n => !n.Outputs.SelectMany(o => o.GetConnections()).Any(c => graphNodes.ContainsKey(c.node)))
-                .ToList();
+            var endNodes = graphNodes.Values
+                            .Where(n => !n.Node.Outputs.SelectMany(o => o.GetConnections()).Any(c => graphNodes.ContainsKey(c.node)))
+                            .OrderBy(n => n.Node.position.y) // Keep the order of the endNodes
+                            .ToList();
+
+            var endNode = new FormattedNode() { Layer = -1, ChildNodes = endNodes };
+
+            // Sorted child nodes, as a tree
+            SetChildNodes(graphNodes, endNode);
 
             // Longest path layering
-            int maxLayer = 0;
-            var nodesStack = new Stack<XNode.Node>(endNodes);
+            int maxLayer = SetLayers(graphNodes, endNode);
+
+            // Set offsets
+            int maxOffset = SetOffsets(endNode, maxLayer);
+
+            Vector2 topRightPosition = endNodes.First().Node.position;
+
+            // TODO: Better node spacing (figure out how much space the biggest node in this row takes up and make the row a bit bigger than that)
+            foreach (var n in graphNodes)
+            {
+                n.Key.position.x = (-n.Value.Layer) * 250 + topRightPosition.x;
+            }
+
+            foreach (var n in graphNodes)
+            {
+                n.Key.position.y = n.Value.Offset * 250 + topRightPosition.y;
+            }
+        }
+
+        private static int SetOffsets(FormattedNode endNode, int maxLayer)
+        {
+            int maxOffset = 0;
+            int[] offsets = new int[maxLayer + 1];
+            // TODO: Replace with iterative version?
+            /*var nodeStack = new Stack<Tuple<FormattedNode, FormattedNode>>();
+            nodeStack.Push(Tuple.Create(endNode, endNode));
+            while(nodeStack.Count > 0)
+            {
+                
+            }*/
+            void SetOffsets(FormattedNode node, FormattedNode straightParent)
+            {
+                if (node.Layer >= 0 && offsets[node.Layer] > node.Offset)
+                {
+                    straightParent.SubtreeOffset = Math.Max(straightParent.SubtreeOffset, offsets[node.Layer] - node.Offset);
+                }
+
+                int childOffset = node.Offset;
+                bool firstIteration = true;
+                foreach (var childNode in node.ChildNodes)
+                {
+                    childNode.Offset = childOffset;
+                    SetOffsets(childNode, firstIteration ? straightParent : childNode);
+                    childOffset = childNode.Offset + 1;
+
+                    firstIteration = false;
+                }
+
+                if (node.Layer >= 0)
+                {
+                    node.Offset += straightParent.SubtreeOffset;
+                    maxOffset = Math.Max(maxOffset, node.Offset);
+                    offsets[node.Layer] = node.Offset + 1;
+                }
+            }
+
+            SetOffsets(endNode, endNode);
+            return maxOffset;
+        }
+
+        private void SetChildNodes(Dictionary<XNode.Node, FormattedNode> graphNodes, FormattedNode endNode)
+        {
+            var nodesStack = new Stack<FormattedNode>();
+            nodesStack.Push(endNode);
+            var visitedChildNodes = new HashSet<FormattedNode>();
             while (nodesStack.Count > 0)
             {
                 var node = nodesStack.Pop();
-                var graphNode = graphNodes[node];
+
+                if (node.ChildNodes == null)
+                {
+                    node.ChildNodes = Sort(node.Node.Inputs)
+                        .SelectMany(input => input.GetConnections())
+                        .Select(c => graphNodes.TryGetValue(c.node, out FormattedNode n) ? n : null)
+                        .Where(n => n != null && !visitedChildNodes.Contains(n))
+                        .ToList();
+                }
+
+                for (int i = node.ChildNodes.Count - 1; i >= 0; i--)
+                {
+                    visitedChildNodes.Add(node.ChildNodes[i]);
+                    nodesStack.Push(node.ChildNodes[i]);
+                }
+            }
+        }
+
+        private static int SetLayers(Dictionary<XNode.Node, FormattedNode> graphNodes, FormattedNode endNode)
+        {
+            int maxLayer = 0;
+            var nodesStack = new Stack<XNode.Node>(endNode.ChildNodes.Select(c => c.Node));
+            while (nodesStack.Count > 0)
+            {
+                var node = nodesStack.Pop();
+                int layer = graphNodes[node].Layer;
 
                 foreach (var input in node.Inputs)
                 {
                     if (input.Connection != null && graphNodes.TryGetValue(input.Connection.node, out var inputGraphNode))
                     {
-                        inputGraphNode.Layer = Math.Max(inputGraphNode.Layer, graphNode.Layer + 1);
+                        inputGraphNode.Layer = Math.Max(inputGraphNode.Layer, layer + 1);
                         maxLayer = Math.Max(maxLayer, inputGraphNode.Layer);
                         nodesStack.Push(input.Connection.node);
                     }
                 }
             }
-            foreach (var n in graphNodes)
-            {
-                n.Key.position.x = (maxLayer - n.Value.Layer) * 250;
-            }
 
-            // Sorted child nodes, as a tree
-            nodesStack = new Stack<XNode.Node>(endNodes);
-            var visitedChildNodes = new HashSet<XNode.Node>();
-            while (nodesStack.Count > 0)
-            {
-                var node = nodesStack.Pop();
-                var graphNode = graphNodes[node];
-
-                graphNode.ChildNodes = Sort(node.Inputs)
-                    .SelectMany(input => input.GetConnections())
-                    .Select(c => c.node)
-                    .Where(n => graphNodes.ContainsKey(n) && !visitedChildNodes.Contains(n))
-                    .ToList();
-
-                foreach (var childNode in graphNode.ChildNodes)
-                {
-                    visitedChildNodes.Add(childNode);
-                    nodesStack.Push(childNode);
-                }
-            }
-
-            int[] offsets = new int[maxLayer + 1];
-            void SetOffsets(XNode.Node node, int offset, XNode.Node straightParent)
-            {
-                var graphNode = graphNodes[node];
-
-                if (offsets[graphNode.Layer] > offset)
-                {
-                    graphNodes[straightParent].SubtreeOffset = Math.Max(graphNodes[straightParent].SubtreeOffset, offsets[graphNode.Layer] - offset);
-                }
-
-                int childOffset = offset;
-                bool firstIteration = true;
-                foreach (var childNode in graphNode.ChildNodes)
-                {
-                    SetOffsets(childNode, childOffset, firstIteration ? straightParent : childNode);
-                    childOffset = graphNodes[childNode].Offset + 1;
-
-                    firstIteration = false;
-                }
-
-                graphNode.Offset = offset + graphNodes[straightParent].SubtreeOffset;
-                offsets[graphNode.Layer] = graphNode.Offset + 1;
-            }
-
-            // TODO: Do it for all endNodes
-            SetOffsets(endNodes.First(), 0, endNodes.First());
-
-            // TODO: Better node spacing (figure out how much space the biggest node in this row takes up and make the row a bit bigger than that)
-            foreach (var n in graphNodes)
-            {
-                n.Key.position.y = n.Value.Offset * 250;
-            }
-
-            //nodes[0].position
-            //this.window.nodeSizes.TryGetValue(node, out Vector2 size)
-
-            //NodeEditor.portPositions
+            return maxLayer;
         }
 
         public override void OnGUI()
@@ -230,9 +262,13 @@ namespace XNodeEditor.Examples
             }).ToList();
         }
 
-        // TODO: Rename this?
-        private class GraphNode
+        private class FormattedNode
         {
+            /// <summary>
+            /// The actual node
+            /// </summary>
+            public XNode.Node Node;
+
             /// <summary>
             /// Starting from 0 at the main nodes
             /// </summary>
@@ -244,7 +280,7 @@ namespace XNodeEditor.Examples
             /// <remarks>
             /// Only contains selected nodes. Also pretends that we have a tree instead of a graph.
             /// </remarks>
-            public List<XNode.Node> ChildNodes;
+            public List<FormattedNode> ChildNodes;
 
             /// <summary>
             /// Position in the layer
