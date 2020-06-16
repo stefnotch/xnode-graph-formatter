@@ -168,12 +168,14 @@ namespace XNodeEditor.Examples
                     graphNodes[straightParent].SubtreeOffset = Math.Max(graphNodes[straightParent].SubtreeOffset, offsets[graphNode.Layer] - offset);
                 }
 
-                int previousOffset = 0;
-                int i = 0;
+                int childOffset = offset;
+                bool firstIteration = true;
                 foreach (var childNode in graphNode.ChildNodes)
                 {
-                    SetOffsets(childNode, offset + i + previousOffset, i == 0 ? straightParent : childNode);
-                    previousOffset = graphNodes[childNode].Offset;
+                    SetOffsets(childNode, childOffset, firstIteration ? straightParent : childNode);
+                    childOffset = graphNodes[childNode].Offset + 1;
+
+                    firstIteration = false;
                 }
 
                 graphNode.Offset = offset + graphNodes[straightParent].SubtreeOffset;
@@ -183,6 +185,7 @@ namespace XNodeEditor.Examples
             // TODO: Do it for all endNodes
             SetOffsets(endNodes.First(), 0, endNodes.First());
 
+            // TODO: Better node spacing (figure out how much space the biggest node in this row takes up and make the row a bit bigger than that)
             foreach (var n in graphNodes)
             {
                 n.Key.position.y = n.Value.Offset * 250;
@@ -197,8 +200,7 @@ namespace XNodeEditor.Examples
         public override void OnGUI()
         {
             base.OnGUI();
-            Handles.DrawLine(window.GridToWindowPositionNoClipped(Vector2.zero), window.GridToWindowPositionNoClipped(Vector2.one * 100));
-
+            //Handles.DrawLine(window.GridToWindowPositionNoClipped(Vector2.zero), window.GridToWindowPositionNoClipped(Vector2.one * 100));
         }
 
         private List<XNode.NodePort> Sort(IEnumerable<XNode.NodePort> nodePorts)

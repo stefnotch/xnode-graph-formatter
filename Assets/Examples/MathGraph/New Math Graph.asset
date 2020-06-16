@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Math
   m_EditorClassIdentifier: 
   graph: {fileID: 11400000}
-  position: {x: 696, y: 376}
+  position: {x: 500, y: 0}
   ports:
     keys:
     - a
@@ -157,10 +157,7 @@ MonoBehaviour:
       _node: {fileID: -5166407410338352457}
       _typeQualifiedName: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
         PublicKeyToken=b77a5c561934e089
-      connections:
-      - fieldName: result
-        node: {fileID: 7732697230737879584}
-        reroutePoints: []
+      connections: []
       _direction: 0
       _connectionType: 0
       _typeConstraint: 0
@@ -231,9 +228,9 @@ MonoBehaviour:
       _connectionType: 0
       _typeConstraint: 0
       _dynamic: 0
-  a: 1.87
+  a: -5.41
   b: -30
-  result: -28.13
+  result: -35.41
   mathType: 0
 --- !u!114 &-546025062810348761
 MonoBehaviour:
@@ -302,7 +299,7 @@ MonoBehaviour:
   m_Name: Vector
   m_EditorClassIdentifier: 
   graph: {fileID: 11400000}
-  position: {x: 440, y: 376}
+  position: {x: 250, y: 0}
   ports:
     keys:
     - x
@@ -361,7 +358,7 @@ MonoBehaviour:
   x: 0
   y: 0
   z: 0
-  vector: {x: -0.65279996, y: -28.13, z: 90.62}
+  vector: {x: -0.65279996, y: -35.41, z: 90.62}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -382,7 +379,6 @@ MonoBehaviour:
   - {fileID: -457889367340534944}
   - {fileID: -7477206787747100267}
   - {fileID: -5166407410338352457}
-  - {fileID: 7732697230737879584}
 --- !u!114 &4018088115345201889
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -396,7 +392,7 @@ MonoBehaviour:
   m_Name: Display Value
   m_EditorClassIdentifier: 
   graph: {fileID: 11400000}
-  position: {x: 936, y: 376}
+  position: {x: 750, y: 0}
   ports:
     keys:
     - input
@@ -413,57 +409,3 @@ MonoBehaviour:
       _connectionType: 1
       _typeConstraint: 0
       _dynamic: 0
---- !u!114 &7732697230737879584
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 19e541bba2a188f4a84c6f3718ee6d55, type: 3}
-  m_Name: Math
-  m_EditorClassIdentifier: 
-  graph: {fileID: 11400000}
-  position: {x: 0, y: 750}
-  ports:
-    keys:
-    - a
-    - b
-    - result
-    values:
-    - _fieldName: a
-      _node: {fileID: 7732697230737879584}
-      _typeQualifiedName: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
-        PublicKeyToken=b77a5c561934e089
-      connections: []
-      _direction: 0
-      _connectionType: 0
-      _typeConstraint: 0
-      _dynamic: 0
-    - _fieldName: b
-      _node: {fileID: 7732697230737879584}
-      _typeQualifiedName: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
-        PublicKeyToken=b77a5c561934e089
-      connections: []
-      _direction: 0
-      _connectionType: 0
-      _typeConstraint: 0
-      _dynamic: 0
-    - _fieldName: result
-      _node: {fileID: 7732697230737879584}
-      _typeQualifiedName: System.Single, mscorlib, Version=4.0.0.0, Culture=neutral,
-        PublicKeyToken=b77a5c561934e089
-      connections:
-      - fieldName: z
-        node: {fileID: -5166407410338352457}
-        reroutePoints: []
-      _direction: 1
-      _connectionType: 0
-      _typeConstraint: 0
-      _dynamic: 0
-  a: 0
-  b: 0
-  result: 0
-  mathType: 2
