@@ -137,7 +137,7 @@ namespace XNodeEditor.Examples
                 n.Key.position.x = (maxLayer - n.Value.Layer) * 250;
             }
 
-            // Order and cached child nodes
+            // Sorted child nodes, as a tree
             nodesStack = new Stack<XNode.Node>(endNodes);
             var visitedChildNodes = new HashSet<XNode.Node>();
             while (nodesStack.Count > 0)
@@ -151,13 +151,10 @@ namespace XNodeEditor.Examples
                     .Where(n => graphNodes.ContainsKey(n) && !visitedChildNodes.Contains(n))
                     .ToList();
 
-                int i = 0;
                 foreach (var childNode in graphNode.ChildNodes)
                 {
-                    graphNodes[childNode].Order = i;
                     visitedChildNodes.Add(childNode);
                     nodesStack.Push(childNode);
-                    i++;
                 }
             }
 
@@ -183,93 +180,18 @@ namespace XNodeEditor.Examples
                 offsets[graphNode.Layer] = graphNode.Offset + 1;
             }
 
+            // TODO: Do it for all endNodes
+            SetOffsets(endNodes.First(), 0, endNodes.First());
 
-            void SetPosition(XNode.Node node)
+            foreach (var n in graphNodes)
             {
-                // bottom = SetPosition(first child, 0)
-                // SetPosition(second child, bottom)
-                // SetPosition(third child, ...)
-
-                // Set own position 
+                n.Key.position.y = n.Value.Offset * 250;
             }
-
 
             //nodes[0].position
             //this.window.nodeSizes.TryGetValue(node, out Vector2 size)
 
             //NodeEditor.portPositions
-
-            // First pass
-            /*void SetOrderSimplistic(XNode.Node node)
-            {
-                int parentOrder = graphNodes[node].Order;
-
-                // An input has 0-1 connections
-                int i = 0;
-                foreach (var inputNode in Sort(node.Inputs).SelectMany(input => input.GetConnections()).Select(c => c.node))
-                {
-                    graphNodes[inputNode].Order = parentOrder + i;
-
-                    SetOrder(inputNode);
-
-                    i++;
-                }
-            }*/
-
-
-            // For every subtree, we know
-            // The "positionInLayer/offset" of the top nodes 
-            // The layer of the last node (even non-top nodes are counted!)
-            // Then, if we have an integer array with the "currentPositionInLayer/offsets",
-            //    we can quickly query where the subtree should go?
-
-            // Second pass (move the nodes apart)
-            /*
-             * draw the subtree rootedat the left child, draw thesubtree rooted at the right child, place the drawings of the subtrees at horizontal distance2, and place the root one level above and halfway between the children. If there is only onechild, place the root at horizontal distance 1 from the child*/
-            void MoveApart(XNode.Node node)
-            {
-
-                foreach (var inputNode in Sort(node.Inputs).SelectMany(input => input.GetConnections()).Select(c => c.node))
-                {
-                }
-            }
-
-            // Order the input nodes
-            /* int[] layerNodeCount = new int[maxLayer + 1];
-             nodesStack = new Stack<XNode.Node>(endNodes);
-             while (nodesStack.Count > 0)
-             {
-                 var node = nodesStack.Pop();
-                 var graphNode = graphNodes[node];
-
-                 foreach (var input in node.Inputs)
-                 {
-                     if (input.Connection != null && graphNodes.TryGetValue(input.Connection.node, out var inputGraphNode) && !inputGraphNode.Visited)
-                     {
-                         inputGraphNode.Order = layerNodeCount[inputGraphNode.Layer];
-                         layerNodeCount[inputGraphNode.Layer] += 1;
-                         inputGraphNode.Visited = true;
-
-                         nodesStack.Push(input.Connection.node);
-                     }
-                 }
-             }
-             foreach (var n in graphNodes.Values)
-             {
-                 n.Visited = false;
-             }
-             foreach (var n in graphNodes)
-             {
-                 n.Key.position.y = n.Value.Order * 150;
-             }*/
-
-            // Element 0 of every layer gets horizontally aligned with the topmost endNode
-            // 
-            // We also have to know how large (pixels, not elements) the maximum layer is 
-            // (note: since it's pixels and not elements, you cannot rely on the fact that the layer with the most elements is the largest one)
-
-
-            // (Special step for main node: Move it to the center)
         }
 
         public override void OnGUI()
@@ -301,12 +223,6 @@ namespace XNodeEditor.Examples
             /// Starting from 0 at the main nodes
             /// </summary>
             public int Layer;
-
-            /// <summary>
-            /// Order in a layer, starting from 0
-            /// Maybe replace it with something like "sorted children"
-            /// </summary>
-            public int Order;
 
             /// <summary>
             /// Child node cache
