@@ -5,12 +5,16 @@ using System.Linq;
 using System.Xml.Schema;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
+using UnityEditor.Graphs;
 using UnityEngine;
 using XNode.Examples;
 using XNode.Examples.MathNodes;
 
 namespace XNodeEditor.Examples
 {
+    /// <summary>
+    /// Contains rather inefficient code, but clarity comes first.
+    /// </summary>
     [CustomNodeGraphEditor(typeof(MathGraph))]
     public class MathGraphEditor : NodeGraphEditor
     {
@@ -101,17 +105,14 @@ namespace XNodeEditor.Examples
 
             // Assumes that all nodes are connected
 
-            //nodes[0].position
-            //this.window.nodeSizes.TryGetValue(node, out Vector2 size)
-
             // Storing extra data for each node
             Dictionary<XNode.Node, GraphNode> graphNodes = nodes.ToDictionary(n => n, n => new GraphNode() { });
 
             // Find rightmost nodes (nodes that don't have any of our nodes to the right)
+            // TODO: Sort the endNodes
             var endNodes = nodes
                 .Where(n => !n.Outputs.SelectMany(o => o.GetConnections()).Any(c => graphNodes.ContainsKey(c.node)))
                 .ToList();
-            Highlight(endNodes); // TODO: I might need better debug tooling
 
             // Longest path layering
             int maxLayer = 0;
@@ -136,12 +137,102 @@ namespace XNodeEditor.Examples
                 n.Key.position.x = (maxLayer - n.Value.Layer) * 250;
             }
 
-            // Question: What sort of datastructure would be most useful in the last step? (Where I'm horizontally aligning nodes and moving them properly apart)
+            // Order and cached child nodes
+            nodesStack = new Stack<XNode.Node>(endNodes);
+            var visitedChildNodes = new HashSet<XNode.Node>();
+            while (nodesStack.Count > 0)
+            {
+                var node = nodesStack.Pop();
+                var graphNode = graphNodes[node];
 
-            // In the FlaxEngine, the Elements are usually sorted, because they are sorted in the NodeArchetype
-            // Here, we probably can't rely on that to be true. So, I'll have to write something like foreach(var input in Sort(node.Inputs))
+                graphNode.ChildNodes = Sort(node.Inputs)
+                    .SelectMany(input => input.GetConnections())
+                    .Select(c => c.node)
+                    .Where(n => graphNodes.ContainsKey(n) && !visitedChildNodes.Contains(n))
+                    .ToList();
+
+                int i = 0;
+                foreach (var childNode in graphNode.ChildNodes)
+                {
+                    graphNodes[childNode].Order = i;
+                    visitedChildNodes.Add(childNode);
+                    nodesStack.Push(childNode);
+                    i++;
+                }
+            }
+
+            int[] offsets = new int[maxLayer + 1];
+            void SetOffsets(XNode.Node node, int offset, XNode.Node straightParent)
+            {
+                var graphNode = graphNodes[node];
+
+                if (offsets[graphNode.Layer] > offset)
+                {
+                    graphNodes[straightParent].SubtreeOffset = Math.Max(graphNodes[straightParent].SubtreeOffset, offsets[graphNode.Layer] - offset);
+                }
+
+                int previousOffset = 0;
+                int i = 0;
+                foreach (var childNode in graphNode.ChildNodes)
+                {
+                    SetOffsets(childNode, offset + i + previousOffset, i == 0 ? straightParent : childNode);
+                    previousOffset = graphNodes[childNode].Offset;
+                }
+
+                graphNode.Offset = offset + graphNodes[straightParent].SubtreeOffset;
+                offsets[graphNode.Layer] = graphNode.Offset + 1;
+            }
+
+
+            void SetPosition(XNode.Node node)
+            {
+                // bottom = SetPosition(first child, 0)
+                // SetPosition(second child, bottom)
+                // SetPosition(third child, ...)
+
+                // Set own position 
+            }
+
+
+            //nodes[0].position
+            //this.window.nodeSizes.TryGetValue(node, out Vector2 size)
 
             //NodeEditor.portPositions
+
+            // First pass
+            /*void SetOrderSimplistic(XNode.Node node)
+            {
+                int parentOrder = graphNodes[node].Order;
+
+                // An input has 0-1 connections
+                int i = 0;
+                foreach (var inputNode in Sort(node.Inputs).SelectMany(input => input.GetConnections()).Select(c => c.node))
+                {
+                    graphNodes[inputNode].Order = parentOrder + i;
+
+                    SetOrder(inputNode);
+
+                    i++;
+                }
+            }*/
+
+
+            // For every subtree, we know
+            // The "positionInLayer/offset" of the top nodes 
+            // The layer of the last node (even non-top nodes are counted!)
+            // Then, if we have an integer array with the "currentPositionInLayer/offsets",
+            //    we can quickly query where the subtree should go?
+
+            // Second pass (move the nodes apart)
+            /*
+             * draw the subtree rootedat the left child, draw thesubtree rooted at the right child, place the drawings of the subtrees at horizontal distance2, and place the root one level above and halfway between the children. If there is only onechild, place the root at horizontal distance 1 from the child*/
+            void MoveApart(XNode.Node node)
+            {
+
+                foreach (var inputNode in Sort(node.Inputs).SelectMany(input => input.GetConnections()).Select(c => c.node))
+                {
+                }
+            }
 
             // Order the input nodes
             /* int[] layerNodeCount = new int[maxLayer + 1];
@@ -188,7 +279,6 @@ namespace XNodeEditor.Examples
 
         }
 
-
         private List<XNode.NodePort> Sort(IEnumerable<XNode.NodePort> nodePorts)
         {
             return nodePorts.OrderBy(p =>
@@ -204,15 +294,7 @@ namespace XNodeEditor.Examples
             }).ToList();
         }
 
-        private void Highlight(List<XNode.Node> nodes)
-        {
-            Selection.objects = new UnityEngine.Object[] { };
-            foreach (var node in nodes)
-            {
-                window.SelectNode(node, true);
-            }
-        }
-
+        // TODO: Rename this?
         private class GraphNode
         {
             /// <summary>
@@ -222,13 +304,27 @@ namespace XNodeEditor.Examples
 
             /// <summary>
             /// Order in a layer, starting from 0
+            /// Maybe replace it with something like "sorted children"
             /// </summary>
             public int Order;
 
             /// <summary>
-            /// If this node has been visited
+            /// Child node cache
             /// </summary>
-            //public bool Visited;
+            /// <remarks>
+            /// Only contains selected nodes. Also pretends that we have a tree instead of a graph.
+            /// </remarks>
+            public List<XNode.Node> ChildNodes;
+
+            /// <summary>
+            /// Position in the layer
+            /// </summary>
+            public int Offset;
+
+            /// <summary>
+            /// How far the subtree needs to be moved additionally
+            /// </summary>
+            public int SubtreeOffset;
         }
     }
 }
