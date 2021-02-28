@@ -1,5 +1,7 @@
 # Sugiyama method (top down)
 
+
+
 1. Cycle removal
    1. Nyehehe, don't have to deal with this because Visject graphs aren't allowed to have cycles 
 2. Layer Assignment
@@ -37,3 +39,10 @@
    1. So, we have to be able to format stuff using width and height constraints (and the algorithm tries its best to fulfill those constraints)
    2. Or maybe, people prefer it when the formatter moves the other nodes?
 
+## Sources (aka whatever I found in my bookmarks, possibly incomplete)
+- [Blueprint Layouting Preferences - Joe Wintergreen](https://twitter.com/joewintergreen/status/1212954361036279808)
+- [The Sugiyama Method - Layered Graph Drawing](https://blog.disy.net/sugiyama-method/)
+- https://www.graphviz.org/Documentation/TSE93.pdf
+- https://paginas.fe.up.pt/~ei05067/documentos/bibliografia/Layout.pdf
+- https://cs.brown.edu/people/rtamassi/gdhandbook/chapters/hierarchical.pdf
+- https://www.cs.usyd.edu.au/~shhong/fab.pdf
